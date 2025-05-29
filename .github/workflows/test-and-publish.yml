@@ -39,7 +39,8 @@ jobs:
         run: |
           # Test that the CLI tool can be imported and shows help
           python -c "import github_org_stats; print('Package import successful')"
-          python -m github_org_stats --help
+          pip install -e .
+          github-org-stats --help
 
   test-install:
     name: Test Package Installation
@@ -101,6 +102,8 @@ jobs:
       # ----- Publish via OIDC to PyPI -----
       - name: Publish via OIDC
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          package-name: "github-org-stats"
         env:
           # Required to request an OIDC token from GitHub
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
