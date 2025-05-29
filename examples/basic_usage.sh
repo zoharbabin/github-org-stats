@@ -1,5 +1,6 @@
 #!/bin/bash
-# GitHub Organization Statistics Tool - Basic Usage Examples
+# GitHub Organization Statistics Tool - Comprehensive Usage Examples
+# Version 1.0.0
 
 echo "GitHub Organization Statistics Tool - Usage Examples"
 echo "===================================================="
@@ -18,19 +19,30 @@ echo "  --private-key /path/to/private-key.pem \\"
 echo "  --installation-id 67890"
 echo ""
 
-# Advanced filtering
-echo "3. Advanced filtering options:"
+# Multi-organization with GitHub App
+echo "3. Multi-organization analysis:"
+echo "python github_org_stats.py \\"
+echo "  --org your-org \\"
+echo "  --app-id 12345 \\"
+echo "  --private-key key.pem \\"
+echo "  --installation-id \"org1:111,org2:222,org3:333\""
+echo ""
+
+# Advanced filtering options
+echo "4. Advanced filtering with all options:"
 echo "python github_org_stats.py \\"
 echo "  --org your-org \\"
 echo "  --token ghp_token \\"
 echo "  --include-forks \\"
 echo "  --include-archived \\"
 echo "  --exclude-bots \\"
-echo "  --max-repos 50"
+echo "  --include-empty \\"
+echo "  --max-repos 50 \\"
+echo "  --days-back 90"
 echo ""
 
 # Multiple output formats
-echo "4. Generate all output formats:"
+echo "5. Generate all output formats:"
 echo "python github_org_stats.py \\"
 echo "  --org your-org \\"
 echo "  --token ghp_token \\"
@@ -39,7 +51,7 @@ echo "  --output-dir ./reports"
 echo ""
 
 # Custom time range and logging
-echo "5. Custom time range with debug logging:"
+echo "6. Custom time range with debug logging:"
 echo "python github_org_stats.py \\"
 echo "  --org your-org \\"
 echo "  --token ghp_token \\"
@@ -49,19 +61,10 @@ echo "  --log-file analysis.log"
 echo ""
 
 # Using configuration file
-echo "6. Using configuration file:"
+echo "7. Using configuration file:"
 echo "python github_org_stats.py \\"
 echo "  --config config/example_config.json \\"
 echo "  --org your-org"
-echo ""
-
-# Multi-organization with GitHub App
-echo "7. Multi-organization analysis:"
-echo "python github_org_stats.py \\"
-echo "  --org your-org \\"
-echo "  --app-id 12345 \\"
-echo "  --private-key key.pem \\"
-echo "  --installation-id \"org1:111,org2:222,org3:333\""
 echo ""
 
 # Specific repositories only
@@ -72,4 +75,98 @@ echo "  --token ghp_token \\"
 echo "  --repos repo1 repo2 repo3"
 echo ""
 
-echo "For more detailed usage information, see docs/USAGE.md"
+# Environment variable authentication
+echo "9. Using environment variables for GitHub App:"
+echo "export GITHUB_APP_ID=12345"
+echo "export GITHUB_PRIVATE_KEY_PATH=/path/to/key.pem"
+echo "python github_org_stats.py --org your-org"
+echo ""
+
+# CSV output only
+echo "10. Generate CSV output only:"
+echo "python github_org_stats.py \\"
+echo "  --org your-org \\"
+echo "  --token ghp_token \\"
+echo "  --format csv \\"
+echo "  --output-dir ./csv_reports"
+echo ""
+
+# JSON output only
+echo "11. Generate JSON output only:"
+echo "python github_org_stats.py \\"
+echo "  --org your-org \\"
+echo "  --token ghp_token \\"
+echo "  --format json \\"
+echo "  --output-dir ./json_reports"
+echo ""
+
+# Comprehensive analysis with all features
+echo "12. Comprehensive analysis with all advanced features:"
+echo "python github_org_stats.py \\"
+echo "  --org your-org \\"
+echo "  --token ghp_token \\"
+echo "  --include-forks \\"
+echo "  --include-archived \\"
+echo "  --exclude-bots \\"
+echo "  --max-repos 500 \\"
+echo "  --days-back 180 \\"
+echo "  --format all \\"
+echo "  --log-level INFO \\"
+echo "  --log-file comprehensive_analysis.log \\"
+echo "  --output-dir ./comprehensive_reports"
+echo ""
+
+# Using installation-ids alias
+echo "13. Using installation-ids parameter (alias):"
+echo "python github_org_stats.py \\"
+echo "  --org your-org \\"
+echo "  --app-id 12345 \\"
+echo "  --private-key key.pem \\"
+echo "  --installation-ids \"org1:111,org2:222\""
+echo ""
+
+# Minimal analysis (fastest)
+echo "14. Minimal analysis for quick overview:"
+echo "python github_org_stats.py \\"
+echo "  --org your-org \\"
+echo "  --token ghp_token \\"
+echo "  --max-repos 10 \\"
+echo "  --days-back 7 \\"
+echo "  --format json"
+echo ""
+
+# Enterprise setup example
+echo "15. Enterprise setup with comprehensive logging:"
+echo "python github_org_stats.py \\"
+echo "  --org enterprise-org \\"
+echo "  --app-id 12345 \\"
+echo "  --private-key /secure/path/enterprise-key.pem \\"
+echo "  --installation-id 67890 \\"
+echo "  --include-forks \\"
+echo "  --include-archived \\"
+echo "  --exclude-bots \\"
+echo "  --max-repos 1000 \\"
+echo "  --days-back 365 \\"
+echo "  --format all \\"
+echo "  --log-level INFO \\"
+echo "  --log-file /var/log/github-analysis/enterprise.log \\"
+echo "  --output-dir /data/github-reports/enterprise"
+echo ""
+
+echo "Environment Variables:"
+echo "======================"
+echo "GITHUB_APP_ID          - GitHub App ID"
+echo "GITHUB_PRIVATE_KEY_PATH - Path to private key file"
+echo ""
+
+echo "Output Files Generated:"
+echo "======================"
+echo "- github_org_stats_[org]_[timestamp].xlsx (Excel format)"
+echo "- github_org_stats_[org]_[timestamp].json (JSON format)"
+echo "- github_org_stats_[org]_[timestamp].csv  (CSV format)"
+echo ""
+
+echo "For detailed documentation, see:"
+echo "- README.md - Complete usage guide"
+echo "- config/example_config.json - Configuration options"
+echo "- examples/github_app_setup.md - GitHub App setup"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "github-org-stats"
-version = "0.1.0"
+version = "1.0.0"
 authors = [
     {name = "Open Source Contributors", email = "contributors@github-org-stats.org"},
 ]
@@ -53,7 +53,7 @@ dev = [
 Homepage = "https://github.com/zoharbabin/github-org-stats"
 "Bug Reports" = "https://github.com/zoharbabin/github-org-stats/issues"
 "Source" = "https://github.com/zoharbabin/github-org-stats"
-"Documentation" = "https://github.com/zoharbabin/github-org-stats/blob/main/docs/USAGE.md"
+"Documentation" = "https://github.com/zoharbabin/github-org-stats/blob/main/README.md"
 
 [project.scripts]
 github-org-stats = "github_org_stats:main"
@@ -62,7 +62,7 @@ github-org-stats = "github_org_stats:main"
 py-modules = ["github_org_stats"]
 
 [tool.setuptools.package-data]
-"*" = ["README.md", "LICENSE", "requirements.txt"]
+"*" = ["README.md", "LICENSE"]
 
 [tool.black]
 line-length = 88

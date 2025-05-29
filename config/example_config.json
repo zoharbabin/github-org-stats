@@ -4,7 +4,8 @@
     "private_key_path": "/path/to/private-key.pem",
     "installation_mappings": {
       "your-org": 67890,
-      "another-org": 11111
+      "another-org": 11111,
+      "third-org": 22222
     }
   },
   "analysis": {
@@ -31,7 +32,30 @@
     ],
     "exclude_patterns": [
       "test-*",
-      "*-backup"
+      "*-backup",
+      "*-archive"
     ]
+  },
+  "advanced_features": {
+    "dependency_analysis": true,
+    "submodule_detection": true,
+    "github_actions_analysis": true,
+    "branch_protection_check": true,
+    "contributor_analysis": true,
+    "code_quality_metrics": true,
+    "security_insights": true,
+    "release_tracking": true
+  },
+  "rate_limiting": {
+    "buffer": 100,
+    "retry_attempts": 3,
+    "backoff_factor": 2.0,
+    "delay": 1.0
+  },
+  "excel_output": {
+    "batch_size": 100,
+    "max_cell_length": 32767,
+    "include_formatting": true,
+    "multiple_sheets": true
   }
 }

@@ -5,7 +5,7 @@ All notable changes to the GitHub Organization Statistics Tool will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-05-27
+## [1.0.0] - 2025-05-28
 
 ### Added
 - Initial release of the unified GitHub Organization Statistics Tool
@@ -21,22 +21,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Detailed documentation including usage guides and migration instructions
 
 ### Features
-- **Repository Metrics**: Stars, forks, issues, watchers, size, and activity
-- **Contributor Analysis**: Top contributors with bot filtering
-- **Code Quality Insights**: Language statistics, dependency analysis
-- **Security Information**: Branch protection, collaborators, teams
-- **GitHub Actions**: Workflow information and recent runs
-- **Release Tracking**: Latest releases and version information
-- **Advanced Filtering**: Include/exclude forks, archived repos, empty repos
-- **Performance Optimization**: Adaptive batch sizing and memory management
-- **Multi-format Output**: Excel with multiple sheets, JSON, and CSV formats
+- **Repository Metrics**: Stars, forks, issues, watchers, size, and activity tracking
+- **Contributor Analysis**: Top contributors with advanced bot filtering (20+ bot patterns)
+- **Code Quality Insights**: Language statistics, dependency analysis from 7+ package managers
+- **Security Information**: Branch protection, collaborators, teams, and admin detection
+- **GitHub Actions**: Workflow information, recent runs, and configuration analysis
+- **Release Tracking**: Latest releases, version information, and release history
+- **Advanced Filtering**: Include/exclude forks, archived repos, empty repos, specific repositories
+- **Performance Optimization**: Adaptive batch sizing, memory management, and rate limiting
+- **Multi-format Output**: Professional Excel with multiple sheets, structured JSON, and CSV formats
+- **Submodule Detection**: Git submodule identification and cataloging
+- **Dependency Analysis**: Support for npm, pip, gem, maven, gradle, cargo, and go modules
+- **Bot Detection**: Configurable bot patterns for dependabot, renovate, github-actions, and more
+
+### Command Line Interface
+- **Authentication Arguments**: `--token`, `--app-id`, `--private-key`, `--installation-id`, `--installation-ids`
+- **Scope Arguments**: `--org` (required), `--repos`, `--days-back`
+- **Output Arguments**: `--output-dir`, `--format`, `--config`
+- **Logging Arguments**: `--log-level`, `--log-file`
+- **Analysis Arguments**: `--include-forks`, `--include-archived`, `--max-repos`, `--exclude-bots`, `--include-empty`
+- **Environment Variables**: `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PATH`, `GITHUB_TOKEN`
 
 ### Authentication
-- Personal Access Token support for individual use
-- GitHub App authentication for enterprise deployments
-- Multi-installation support for analyzing multiple organizations
-- Environment variable configuration
-- Secure private key handling
+- Personal Access Token support for individual use with required permissions (repo, read:org, read:user)
+- GitHub App authentication for enterprise deployments with higher rate limits
+- Multi-installation support for analyzing multiple organizations simultaneously
+- Environment variable configuration for secure credential management
+- Secure private key handling with PEM format validation
 
 ### Output Formats
 - **Excel**: Professional formatting with multiple sheets
@@ -49,11 +60,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CSV**: Flattened data for spreadsheet analysis
 
 ### Documentation
-- Comprehensive README with quick start guide
-- Detailed usage documentation (docs/USAGE.md)
-- Migration guide from previous tools (docs/MIGRATION.md)
-- Development guide for contributors (docs/DEVELOPMENT.md)
-- GitHub App setup instructions
+- Comprehensive README with quick start guide and complete usage documentation
+- All authentication methods including Personal Access Token and GitHub App setup
+- Command-line arguments reference with examples
+- Configuration file documentation with complete example
+- Troubleshooting section with common issues and solutions
+- Development setup and contribution guidelines
 - Example configurations and usage scripts
 
 ### Testing
