@@ -585,12 +585,14 @@ def main():
     if result.failures:
         print(f"\nFailures:")
         for test, traceback in result.failures:
-            print(f"  - {test}: {traceback.split('AssertionError: ')[-1].split('\\n')[0]}")
+            error_msg = traceback.split('AssertionError: ')[-1].split('\n')[0]
+            print(f"  - {test}: {error_msg}")
     
     if result.errors:
         print(f"\nErrors:")
         for test, traceback in result.errors:
-            print(f"  - {test}: {traceback.split('\\n')[-2]}")
+            error_msg = traceback.split('\n')[-2]
+            print(f"  - {test}: {error_msg}")
     
     return 0 if result.wasSuccessful() else 1
 
