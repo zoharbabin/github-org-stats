@@ -50,10 +50,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ZoharBabinM3/github-org-stats"
-"Bug Reports" = "https://github.com/ZoharBabinM3/github-org-stats/issues"
-"Source" = "https://github.com/ZoharBabinM3/github-org-stats"
-"Documentation" = "https://github.com/ZoharBabinM3/github-org-stats/blob/main/docs/USAGE.md"
+Homepage = "https://github.com/zoharbabin/github-org-stats"
+"Bug Reports" = "https://github.com/zoharbabin/github-org-stats/issues"
+"Source" = "https://github.com/zoharbabin/github-org-stats"
+"Documentation" = "https://github.com/zoharbabin/github-org-stats/blob/main/docs/USAGE.md"
 
 [project.scripts]
 github-org-stats = "github_org_stats:main"

@@ -2,8 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
-[![GitHub Issues](https://img.shields.io/github/issues/ZoharBabinM3/github-org-stats.svg)](https://github.com/ZoharBabinM3/github-org-stats/issues)
-[![GitHub Stars](https://img.shields.io/github/stars/ZoharBabinM3/github-org-stats.svg)](https://github.com/ZoharBabinM3/github-org-stats/stargazers)
+[![GitHub Issues](https://img.shields.io/github/issues/zoharbabin/github-org-stats.svg)](https://github.com/zoharbabin/github-org-stats/issues)
+[![GitHub Stars](https://img.shields.io/github/stars/zoharbabin/github-org-stats.svg)](https://github.com/zoharbabin/github-org-stats/stargazers)
 
 A comprehensive, open-source tool for analyzing GitHub organization statistics including repository metrics, contributor activity, code quality insights, and multi-organization support with GitHub Apps.
 
@@ -34,7 +34,7 @@ pip install -r requirements.txt
 ### Quick Install
 
 ```bash
-git clone https://github.com/ZoharBabinM3/github-org-stats.git
+git clone https://github.com/zoharbabin/github-org-stats.git
 cd github-org-stats
 pip install -r requirements.txt
 ```
@@ -145,12 +145,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - **Documentation**: Check our comprehensive [usage guide](docs/USAGE.md)
-- **Issues**: Report bugs or request features via [GitHub Issues](https://github.com/ZoharBabinM3/github-org-stats/issues)
-- **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/ZoharBabinM3/github-org-stats/discussions)
+- **Issues**: Report bugs or request features via [GitHub Issues](https://github.com/zoharbabin/github-org-stats/issues)
+- **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/zoharbabin/github-org-stats/discussions)
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=ZoharBabinM3/github-org-stats&type=Date)](https://star-history.com/#ZoharBabinM3/github-org-stats&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=zoharbabin/github-org-stats&type=Date)](https://star-history.com/#zoharbabin/github-org-stats&Date)
 
 ## 🙏 Acknowledgments
 
