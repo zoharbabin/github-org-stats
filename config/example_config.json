@@ -1,0 +1,37 @@
+{
+  "authentication": {
+    "app_id": 12345,
+    "private_key_path": "/path/to/private-key.pem",
+    "installation_mappings": {
+      "your-org": 67890,
+      "another-org": 11111
+    }
+  },
+  "analysis": {
+    "days_back": 60,
+    "max_repos": 200,
+    "include_forks": false,
+    "include_archived": false,
+    "exclude_bots": true,
+    "include_empty": false
+  },
+  "output": {
+    "format": "excel",
+    "output_dir": "./reports",
+    "timezone": "UTC"
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "github_analysis.log"
+  },
+  "filtering": {
+    "repositories": [
+      "specific-repo-1",
+      "specific-repo-2"
+    ],
+    "exclude_patterns": [
+      "test-*",
+      "*-backup"
+    ]
+  }
+}
