@@ -5,6 +5,61 @@ All notable changes to the GitHub Organization Statistics Tool will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-05-29
+
+### Added
+- **🚀 Multi-Organization Analysis**: Revolutionary new `--org-ids` parameter enables analyzing multiple organizations in a single command run
+  - Format: `--org-ids "org1:install_id1,org2:install_id2,org3:install_id3"`
+  - Combines all repository data into unified output files
+  - Each repository record includes organization attribution
+  - Distributes max-repos limit intelligently across organizations
+  - Enhanced Excel output with "Organization_Breakdown" sheet
+- **Enhanced Authentication**: Improved environment variable support
+  - Automatic detection of `GITHUB_APP_ID` and `GITHUB_PRIVATE_KEY_PATH`
+  - Better validation logic for mixed authentication methods
+  - Clearer error messages for authentication issues
+- **Improved GitHub App Support**: Fixed permission issues with GitHub App authentication
+  - Removed unnecessary `/user` endpoint calls that GitHub Apps can't access
+  - Direct organization access for better compatibility
+  - Enhanced logging for multi-organization authentication flows
+
+### Changed
+- **Command Line Interface**: Updated argument structure for multi-organization support
+  - `--org` now optional (single organization mode)
+  - `--org-ids` added for multi-organization mode (mutually exclusive with `--org`)
+  - Enhanced help documentation with multi-organization examples
+- **Output File Naming**: Intelligent filename generation based on analysis mode
+  - Single org: `github_org_stats_orgname_timestamp.ext`
+  - Multi org: `github_org_stats_org1_org2_timestamp.ext` or `github_org_stats_multi_org_N_orgs_timestamp.ext`
+- **Excel Output Enhancement**: Additional sheets for multi-organization analysis
+  - New "Organization_Breakdown" sheet with per-organization statistics
+  - Enhanced summary sheet with total organization count
+  - Better data organization and visualization
+
+### Fixed
+- **GitHub App Authentication**: Resolved 403 "Resource not accessible by integration" errors
+  - Removed problematic `/user` endpoint verification calls
+  - Streamlined authentication flow for GitHub Apps
+- **Environment Variable Validation**: Fixed authentication validation to properly recognize environment variables
+- **Multi-Organization Error Handling**: Enhanced error tracking and reporting across multiple organizations
+
+## [1.0.1] - 2025-05-29
+
+### Fixed
+- **Language Name Sanitization**: Fixed C# vs C language detection conflicts in Excel output
+  - Added `sanitize_language_names()` function to handle problematic language names
+  - C# → CSharp, C++ → CPlusPlus, F# → FSharp transformations
+  - Prevents Excel column name conflicts when exporting repository language statistics
+  - Preserves original byte counts and statistical accuracy
+  - Includes comprehensive logging of transformations applied
+- **Excel Compatibility**: Resolved column name sanitization issues that caused data conflicts
+- **Data Integrity**: Ensured language statistics remain accurate after name transformations
+
+### Added
+- Real-world integration tests for language name sanitization
+- Comprehensive test coverage for C#, C++, and F# language handling
+- Enhanced error handling and logging for language data processing
+
 ## [1.0.0] - 2025-05-28
 
 ### Added

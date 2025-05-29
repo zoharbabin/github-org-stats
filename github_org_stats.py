@@ -13,10 +13,10 @@ This is an open-source tool for analyzing GitHub organizations and repositories.
 It provides detailed insights into repository activity, contributor engagement,
 code quality metrics, and organizational health indicators.
 
-Author: Open Source Contributors
+Author: Zohar Babin
 License: MIT
-Version: 1.0.0
-Homepage: https://github.com/your-org/github-org-stats
+Version: 1.1.0
+Homepage: https://github.com/zoharbabin/github-org-stats/
 """
 
 # =============================================================================
@@ -944,6 +944,75 @@ def get_latest_commit_info(repo) -> Dict[str, Any]:
         return {}
 
 # =============================================================================
+# LANGUAGE NAME SANITIZATION SYSTEM
+# =============================================================================
+
+def sanitize_language_names(repo_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Sanitize problematic language names to prevent Excel column name conflicts.
+    
+    This function addresses the issue where Excel sanitizes the "#" character in column names,
+    causing "languages.C#" to become "languages.C" and creating conflicts with actual C language data.
+    
+    Args:
+        repo_data: List of repository dictionaries containing language data
+        
+    Returns:
+        List of repository dictionaries with sanitized language names
+    """
+    import copy
+    
+    logger = logging.getLogger('github_org_stats')
+    
+    # Define language name mappings for problematic characters
+    language_mappings = {
+        'C#': 'CSharp',
+        'C++': 'CPlusPlus',
+        'F#': 'FSharp'
+    }
+    
+    sanitized_languages = []
+    transformation_count = 0
+    
+    for repo in repo_data:
+        # Create a deep copy to avoid modifying the original data
+        sanitized_repo = copy.deepcopy(repo)
+        
+        # Check if repository has language data
+        if 'languages' in sanitized_repo and isinstance(sanitized_repo['languages'], dict):
+            original_languages = sanitized_repo['languages']
+            sanitized_repo_languages = {}
+            
+            for lang_name, byte_count in original_languages.items():
+                if lang_name in language_mappings:
+                    new_name = language_mappings[lang_name]
+                    sanitized_repo_languages[new_name] = byte_count
+                    transformation_count += 1
+                    logger.debug(f"Sanitized language name in {sanitized_repo.get('name', 'unknown')}: {lang_name} → {new_name}")
+                else:
+                    sanitized_repo_languages[lang_name] = byte_count
+            
+            sanitized_repo['languages'] = sanitized_repo_languages
+        
+        # Update primary_language if it was one of the sanitized languages (handle independently of languages dict)
+        if 'primary_language' in sanitized_repo and sanitized_repo['primary_language'] in language_mappings:
+            old_primary = sanitized_repo['primary_language']
+            sanitized_repo['primary_language'] = language_mappings[old_primary]
+            transformation_count += 1
+            logger.debug(f"Sanitized primary language in {sanitized_repo.get('name', 'unknown')}: {old_primary} → {sanitized_repo['primary_language']}")
+        
+        sanitized_languages.append(sanitized_repo)
+    
+    if transformation_count > 0:
+        transformed_mappings = [f"{old} → {new}" for old, new in language_mappings.items()]
+        logger.info(f"Sanitized language names: {', '.join(transformed_mappings)} ({transformation_count} transformations)")
+    else:
+        logger.debug("No language name sanitization needed")
+    
+    return sanitized_languages
+
+
+# =============================================================================
 # EXCEL OUTPUT & OPTIMIZATION SYSTEM
 # =============================================================================
 
@@ -1229,7 +1298,8 @@ Examples:
   %(prog)s --org myorg --token ghp_xxx
   %(prog)s --org myorg --app-id 12345 --private-key key.pem --installation-id 67890
   %(prog)s --org myorg --app-id 12345 --private-key key.pem --installation-id "myorg:67890"
-  %(prog)s --org myorg --app-id 12345 --private-key key.pem --installation-id "org1:111,org2:222"
+  %(prog)s --org-ids "org1:111,org2:222" --app-id 12345 --private-key key.pem
+  %(prog)s --org-ids "kaltura:68242466,kaltura-ps:68357040" --format all
   %(prog)s --config config.json --output-dir ./reports
         """
     )
@@ -1262,8 +1332,11 @@ Examples:
     scope_group = parser.add_argument_group('Scope')
     scope_group.add_argument(
         '--org',
-        required=True,
-        help='GitHub organization name to analyze'
+        help='GitHub organization name to analyze (single organization mode)'
+    )
+    scope_group.add_argument(
+        '--org-ids',
+        help='Multiple organizations with installation IDs in format "org1:id1,org2:id2" (multi-organization mode)'
     )
     scope_group.add_argument(
         '--repos',
@@ -1373,10 +1446,21 @@ def validate_arguments(args: argparse.Namespace) -> None:
     Raises:
         ValueError: If arguments are invalid or incomplete
     """
-    # Validate authentication
-    if not args.token and not (args.app_id and args.private_key):
+    # Validate organization parameters
+    if not args.org and not args.org_ids:
+        raise ValueError("Either --org or --org-ids must be specified")
+    
+    if args.org and args.org_ids:
+        raise ValueError("Cannot specify both --org and --org-ids. Use --org for single organization or --org-ids for multiple organizations")
+    
+    # Validate authentication - check CLI args first, then environment variables
+    has_token = args.token is not None
+    has_app_creds = args.app_id is not None and args.private_key is not None
+    has_env_creds = os.getenv('GITHUB_APP_ID') is not None and os.getenv('GITHUB_PRIVATE_KEY_PATH') is not None
+    
+    if not has_token and not has_app_creds and not has_env_creds:
         raise ValueError(
-            "Authentication required: provide either --token or both --app-id and --private-key"
+            "Authentication required: provide either --token, both --app-id and --private-key, or set GITHUB_APP_ID and GITHUB_PRIVATE_KEY_PATH environment variables"
         )
     
     # Validate GitHub App authentication
@@ -1396,6 +1480,13 @@ def validate_arguments(args: argparse.Namespace) -> None:
             parse_installation_ids(args.installation_id)
         except ValueError as e:
             raise ValueError(f"Invalid installation ID format: {e}")
+    
+    # Validate org-ids format if using multi-organization mode
+    if args.org_ids:
+        try:
+            parse_installation_ids(args.org_ids)
+        except ValueError as e:
+            raise ValueError(f"Invalid --org-ids format: {e}")
     
     # Validate output directory
     if not os.path.exists(args.output_dir):
@@ -1425,26 +1516,36 @@ def main() -> int:
         # Setup logging
         logger = setup_logging(args.log_level, args.log_file)
         logger.info("GitHub Organization Statistics Tool - Starting")
-        logger.info(f"Organization: {args.org}")
+        
+        # Determine organizations to analyze
+        organizations_to_analyze = {}
+        if args.org:
+            # Single organization mode
+            logger.info(f"Single organization mode: {args.org}")
+            organizations_to_analyze[args.org] = None  # Will determine installation ID later
+        elif args.org_ids:
+            # Multi-organization mode
+            organizations_to_analyze = parse_installation_ids(args.org_ids)
+            logger.info(f"Multi-organization mode: {list(organizations_to_analyze.keys())}")
+        
         logger.info(f"Output directory: {args.output_dir}")
         
         # Validate arguments
         validate_arguments(args)
         logger.info("Arguments validated successfully")
         
-        # Initialize GitHub client with authentication
-        github_client = None
+        # Initialize authentication
         token_manager = None
         installation_mappings = None
         
         if args.token:
             # Personal Access Token authentication
             logger.info("Using Personal Access Token authentication")
-            github_client = Github(args.token)
+            # For PAT, we'll create a single client and use it for all organizations
             
         elif args.app_id and args.private_key:
-            # GitHub App authentication
-            logger.info("Using GitHub App authentication")
+            # GitHub App authentication from CLI args
+            logger.info("Using GitHub App authentication from CLI arguments")
             
             try:
                 # Load private key
@@ -1455,25 +1556,15 @@ def main() -> int:
                 token_manager = GitHubAppTokenManager(args.app_id, private_key)
                 logger.info(f"Initialized token manager for App ID: {args.app_id}")
                 
-                # Parse installation IDs if provided
+                # Parse installation IDs if provided for single org mode
                 if args.installation_id:
                     installation_mappings = parse_installation_ids(args.installation_id)
                     logger.info(f"Parsed installation mappings: {installation_mappings}")
                 
-                # Get installation ID for the target organization
-                installation_id = get_installation_id(
-                    args.org,
-                    token_manager,
-                    installation_mappings
-                )
-                logger.info(f"Using installation ID {installation_id} for organization: {args.org}")
-                
-                # Get installation token
-                installation_token = token_manager.get_installation_token(installation_id)
-                logger.info("Successfully obtained installation access token")
-                
-                # Initialize GitHub client with installation token
-                github_client = Github(installation_token)
+                # For multi-org mode, organizations_to_analyze already contains the mappings
+                if args.org_ids:
+                    installation_mappings = organizations_to_analyze
+                    logger.info(f"Using org-ids installation mappings: {installation_mappings}")
                 
             except Exception as e:
                 logger.error(f"GitHub App authentication failed: {e}")
@@ -1481,175 +1572,206 @@ def main() -> int:
         
         else:
             # Try loading from environment variables
-            logger.info("Attempting to load GitHub App credentials from environment")
+            logger.info("Using GitHub App authentication from environment variables")
             env_app_id, env_private_key = load_github_app_creds()
             
             if env_app_id and env_private_key:
                 token_manager = GitHubAppTokenManager(env_app_id, env_private_key)
-                installation_id = get_installation_id(args.org, token_manager)
-                installation_token = token_manager.get_installation_token(installation_id)
-                github_client = Github(installation_token)
-                logger.info("Successfully authenticated using environment variables")
+                logger.info(f"Successfully loaded GitHub App credentials from environment (App ID: {env_app_id})")
+                
+                # For multi-org mode, organizations_to_analyze already contains the mappings
+                if args.org_ids:
+                    installation_mappings = organizations_to_analyze
+                    logger.info(f"Using org-ids installation mappings: {installation_mappings}")
+                
             else:
                 raise ValueError("No valid authentication method found")
         
-        # Verify authentication by testing API access
-        try:
-            user = github_client.get_user()
-            logger.info(f"Authenticated as: {user.login}")
+        # Collect data from all organizations
+        logger.info("Starting multi-organization data collection...")
+        
+        all_repo_data = []
+        all_error_tracker = ErrorTracker()
+        all_skipped_repos = []
+        total_repos_found = 0
+        
+        # Process each organization
+        for org_name, installation_id in organizations_to_analyze.items():
+            logger.info(f"Processing organization: {org_name}")
             
-            # Test organization access
-            org = github_client.get_organization(args.org)
-            logger.info(f"Successfully accessed organization: {org.name} ({org.login})")
-            
-        except GithubException as e:
-            logger.error(f"Authentication verification failed: {e}")
-            raise ValueError(f"Failed to access GitHub API or organization: {e}")
-        
-        # Collect organization data
-        logger.info("Starting data collection...")
-        
-        # Get organization repositories
-        repos = list(org.get_repos())
-        logger.info(f"Found {len(repos)} repositories in organization")
-        
-        # Filter repositories based on arguments
-        filtered_repos = []
-        for repo in repos:
-            # Skip forks if not included
-            if repo.fork and not args.include_forks:
+            try:
+                # Get GitHub client for this organization
+                github_client = None
+                
+                if args.token:
+                    # Personal Access Token - same client for all orgs
+                    github_client = Github(args.token)
+                elif token_manager:
+                    # GitHub App authentication - get installation token for this org
+                    if installation_id is None:
+                        # Single org mode - determine installation ID
+                        installation_id = get_installation_id(org_name, token_manager, installation_mappings)
+                    
+                    installation_token = token_manager.get_installation_token(installation_id)
+                    github_client = Github(installation_token)
+                    logger.info(f"Using installation ID {installation_id} for organization: {org_name}")
+                
+                # Verify organization access (skip user verification for GitHub Apps)
+                org = github_client.get_organization(org_name)
+                logger.info(f"Successfully accessed organization: {org.name} ({org.login})")
+                
+                # Get organization repositories
+                repos = list(org.get_repos())
+                logger.info(f"Found {len(repos)} repositories in organization {org_name}")
+                total_repos_found += len(repos)
+                
+                # Filter repositories based on arguments
+                filtered_repos = []
+                for repo in repos:
+                    # Skip forks if not included
+                    if repo.fork and not args.include_forks:
+                        continue
+                    
+                    # Skip archived if not included
+                    if repo.archived and not args.include_archived:
+                        continue
+                    
+                    # Filter by specific repositories if specified
+                    if args.repos and repo.name not in args.repos:
+                        continue
+                    
+                    filtered_repos.append(repo)
+                
+                # Limit number of repositories per organization
+                org_max_repos = args.max_repos // len(organizations_to_analyze) if len(organizations_to_analyze) > 1 else args.max_repos
+                if len(filtered_repos) > org_max_repos:
+                    logger.warning(f"Limiting analysis to {org_max_repos} repositories for {org_name} (found {len(filtered_repos)})")
+                    filtered_repos = filtered_repos[:org_max_repos]
+                
+                logger.info(f"Analyzing {len(filtered_repos)} repositories from {org_name}")
+                
+                # Process repositories with progress bar
+                with tqdm(total=len(filtered_repos), desc=f"Processing {org_name} repositories") as pbar:
+                    for repo in filtered_repos:
+                        try:
+                            logger.debug(f"Processing repository: {repo.name} from {org_name}")
+                            
+                            # Basic repository information
+                            repo_info = {
+                                'organization': org_name,  # Add organization field
+                                'name': repo.name,
+                                'full_name': repo.full_name,
+                                'description': repo.description or '',
+                                'private': repo.private,
+                                'fork': repo.fork,
+                                'archived': repo.archived,
+                                'disabled': repo.disabled,
+                                'created_at': repo.created_at.isoformat() if repo.created_at else None,
+                                'updated_at': repo.updated_at.isoformat() if repo.updated_at else None,
+                                'pushed_at': repo.pushed_at.isoformat() if repo.pushed_at else None,
+                                'size': repo.size,
+                                'stargazers_count': repo.stargazers_count,
+                                'watchers_count': repo.watchers_count,
+                                'forks_count': repo.forks_count,
+                                'open_issues_count': repo.open_issues_count,
+                                'default_branch': repo.default_branch,
+                                'language': repo.language,
+                                'has_issues': repo.has_issues,
+                                'has_projects': repo.has_projects,
+                                'has_wiki': repo.has_wiki,
+                                'has_pages': repo.has_pages,
+                                'has_downloads': repo.has_downloads,
+                                'license': repo.license.name if repo.license else None,
+                                'clone_url': repo.clone_url,
+                                'html_url': repo.html_url
+                            }
+                            
+                            # Enhanced data collection using helper functions
+                            logger.debug(f"Collecting commit statistics for {repo.name}")
+                            commit_stats = gh_safe(github_client, get_commit_stats, repo, args.days_back)
+                            if commit_stats:
+                                repo_info.update(commit_stats)
+                            
+                            logger.debug(f"Collecting language statistics for {repo.name}")
+                            languages = gh_safe(github_client, get_code_bytes, repo)
+                            if languages:
+                                repo_info['languages'] = languages
+                                repo_info['total_code_bytes'] = sum(languages.values())
+                                repo_info['primary_language'] = max(languages.items(), key=lambda x: x[1])[0] if languages else None
+                            
+                            logger.debug(f"Collecting topics for {repo.name}")
+                            topics = gh_safe(github_client, get_repo_topics, repo)
+                            repo_info['topics'] = topics
+                            
+                            logger.debug(f"Collecting contributors for {repo.name}")
+                            contributors = gh_safe(github_client, get_primary_contributors, repo)
+                            repo_info['contributors'] = contributors
+                            repo_info['contributors_count'] = len(contributors) if contributors else 0
+                            
+                            logger.debug(f"Collecting branch/tag counts for {repo.name}")
+                            branch_tag_info = gh_safe(github_client, get_branches_tags_counts, repo)
+                            if branch_tag_info:
+                                repo_info.update(branch_tag_info)
+                            
+                            logger.debug(f"Collecting release information for {repo.name}")
+                            release_info = gh_safe(github_client, get_release_info, repo)
+                            if release_info:
+                                repo_info.update(release_info)
+                            
+                            logger.debug(f"Collecting Actions information for {repo.name}")
+                            actions_info = gh_safe(github_client, get_actions_info, repo)
+                            if actions_info:
+                                repo_info['github_actions'] = actions_info
+                            
+                            logger.debug(f"Collecting branch protection for {repo.name}")
+                            protection_info = gh_safe(github_client, get_default_branch_protection, repo)
+                            if protection_info:
+                                repo_info['branch_protection'] = protection_info
+                            
+                            logger.debug(f"Collecting latest commit info for {repo.name}")
+                            latest_commit = gh_safe(github_client, get_latest_commit_info, repo)
+                            if latest_commit:
+                                repo_info['latest_commit'] = latest_commit
+                            
+                            logger.debug(f"Collecting dependency information for {repo.name}")
+                            deps = gh_safe(github_client, get_sbom_deps, repo)
+                            if deps:
+                                repo_info['dependencies'] = deps
+                            
+                            logger.debug(f"Collecting submodules for {repo.name}")
+                            submodules = gh_safe(github_client, get_submodules_info, repo)
+                            repo_info['submodules'] = submodules
+                            repo_info['submodules_count'] = len(submodules) if submodules else 0
+                            
+                            # Add timestamp
+                            repo_info['analyzed_at'] = datetime.now().isoformat()
+                            
+                            all_repo_data.append(repo_info)
+                            
+                        except Exception as e:
+                            logger.error(f"Error processing repository {repo.name} from {org_name}: {e}")
+                            all_error_tracker.add_error(repo.name, "processing_error", str(e), f"Organization: {org_name}")
+                            continue
+                        finally:
+                            pbar.update(1)
+                            
+                            # Print rate limit status periodically
+                            if len(all_repo_data) % 10 == 0:
+                                print_rate_limit(github_client)
+                
+                logger.info(f"Successfully collected data for {len([r for r in all_repo_data if r['organization'] == org_name])} repositories from {org_name}")
+                
+            except Exception as e:
+                logger.error(f"Error processing organization {org_name}: {e}")
+                all_error_tracker.add_error(org_name, "organization_error", str(e), "Failed to process entire organization")
                 continue
-            
-            # Skip archived if not included
-            if repo.archived and not args.include_archived:
-                continue
-            
-            # Filter by specific repositories if specified
-            if args.repos and repo.name not in args.repos:
-                continue
-            
-            filtered_repos.append(repo)
         
-        # Limit number of repositories
-        if len(filtered_repos) > args.max_repos:
-            logger.warning(f"Limiting analysis to {args.max_repos} repositories (found {len(filtered_repos)})")
-            filtered_repos = filtered_repos[:args.max_repos]
+        # Use collected data for output
+        repo_data = all_repo_data
+        error_tracker = all_error_tracker
+        skipped_repos = all_skipped_repos
         
-        logger.info(f"Analyzing {len(filtered_repos)} repositories")
-        
-        # Initialize data collection
-        repo_data = []
-        error_tracker = ErrorTracker()
-        skipped_repos = []
-        
-        # Process repositories with progress bar
-        with tqdm(total=len(filtered_repos), desc="Processing repositories") as pbar:
-            for repo in filtered_repos:
-                try:
-                    logger.debug(f"Processing repository: {repo.name}")
-                    
-                    # Basic repository information
-                    repo_info = {
-                        'name': repo.name,
-                        'full_name': repo.full_name,
-                        'description': repo.description or '',
-                        'private': repo.private,
-                        'fork': repo.fork,
-                        'archived': repo.archived,
-                        'disabled': repo.disabled,
-                        'created_at': repo.created_at.isoformat() if repo.created_at else None,
-                        'updated_at': repo.updated_at.isoformat() if repo.updated_at else None,
-                        'pushed_at': repo.pushed_at.isoformat() if repo.pushed_at else None,
-                        'size': repo.size,
-                        'stargazers_count': repo.stargazers_count,
-                        'watchers_count': repo.watchers_count,
-                        'forks_count': repo.forks_count,
-                        'open_issues_count': repo.open_issues_count,
-                        'default_branch': repo.default_branch,
-                        'language': repo.language,
-                        'has_issues': repo.has_issues,
-                        'has_projects': repo.has_projects,
-                        'has_wiki': repo.has_wiki,
-                        'has_pages': repo.has_pages,
-                        'has_downloads': repo.has_downloads,
-                        'license': repo.license.name if repo.license else None,
-                        'clone_url': repo.clone_url,
-                        'html_url': repo.html_url
-                    }
-                    
-                    # Enhanced data collection using helper functions
-                    logger.debug(f"Collecting commit statistics for {repo.name}")
-                    commit_stats = gh_safe(github_client, get_commit_stats, repo, args.days_back)
-                    if commit_stats:
-                        repo_info.update(commit_stats)
-                    
-                    logger.debug(f"Collecting language statistics for {repo.name}")
-                    languages = gh_safe(github_client, get_code_bytes, repo)
-                    if languages:
-                        repo_info['languages'] = languages
-                        repo_info['total_code_bytes'] = sum(languages.values())
-                        repo_info['primary_language'] = max(languages.items(), key=lambda x: x[1])[0] if languages else None
-                    
-                    logger.debug(f"Collecting topics for {repo.name}")
-                    topics = gh_safe(github_client, get_repo_topics, repo)
-                    repo_info['topics'] = topics
-                    
-                    logger.debug(f"Collecting contributors for {repo.name}")
-                    contributors = gh_safe(github_client, get_primary_contributors, repo)
-                    repo_info['contributors'] = contributors
-                    repo_info['contributors_count'] = len(contributors) if contributors else 0
-                    
-                    logger.debug(f"Collecting branch/tag counts for {repo.name}")
-                    branch_tag_info = gh_safe(github_client, get_branches_tags_counts, repo)
-                    if branch_tag_info:
-                        repo_info.update(branch_tag_info)
-                    
-                    logger.debug(f"Collecting release information for {repo.name}")
-                    release_info = gh_safe(github_client, get_release_info, repo)
-                    if release_info:
-                        repo_info.update(release_info)
-                    
-                    logger.debug(f"Collecting Actions information for {repo.name}")
-                    actions_info = gh_safe(github_client, get_actions_info, repo)
-                    if actions_info:
-                        repo_info['github_actions'] = actions_info
-                    
-                    logger.debug(f"Collecting branch protection for {repo.name}")
-                    protection_info = gh_safe(github_client, get_default_branch_protection, repo)
-                    if protection_info:
-                        repo_info['branch_protection'] = protection_info
-                    
-                    logger.debug(f"Collecting latest commit info for {repo.name}")
-                    latest_commit = gh_safe(github_client, get_latest_commit_info, repo)
-                    if latest_commit:
-                        repo_info['latest_commit'] = latest_commit
-                    
-                    logger.debug(f"Collecting dependency information for {repo.name}")
-                    deps = gh_safe(github_client, get_sbom_deps, repo)
-                    if deps:
-                        repo_info['dependencies'] = deps
-                    
-                    logger.debug(f"Collecting submodules for {repo.name}")
-                    submodules = gh_safe(github_client, get_submodules_info, repo)
-                    repo_info['submodules'] = submodules
-                    repo_info['submodules_count'] = len(submodules) if submodules else 0
-                    
-                    # Add timestamp
-                    repo_info['analyzed_at'] = datetime.now().isoformat()
-                    
-                    repo_data.append(repo_info)
-                    
-                except Exception as e:
-                    logger.error(f"Error processing repository {repo.name}: {e}")
-                    continue
-                finally:
-                    pbar.update(1)
-                    
-                    # Print rate limit status periodically
-                    if len(repo_data) % 10 == 0:
-                        print_rate_limit(github_client)
-        
-        logger.info(f"Successfully collected data for {len(repo_data)} repositories")
+        logger.info(f"Successfully collected data for {len(repo_data)} repositories across {len(organizations_to_analyze)} organizations")
         
         # Create output directory
         os.makedirs(args.output_dir, exist_ok=True)
@@ -1657,35 +1779,49 @@ def main() -> int:
         # Generate timestamp for output files
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
+        # Determine filename suffix based on mode
+        if args.org:
+            filename_suffix = args.org
+        else:
+            filename_suffix = "_".join(organizations_to_analyze.keys())
+            if len(filename_suffix) > 50:  # Limit filename length
+                filename_suffix = f"multi_org_{len(organizations_to_analyze)}_orgs"
+        
         # Save data in requested format(s)
         if args.format in ['json', 'all']:
-            json_file = os.path.join(args.output_dir, f"github_org_stats_{args.org}_{timestamp}.json")
+            json_file = os.path.join(args.output_dir, f"github_org_stats_{filename_suffix}_{timestamp}.json")
             with open(json_file, 'w') as f:
                 json.dump({
-                    'organization': args.org,
+                    'organizations': list(organizations_to_analyze.keys()) if args.org_ids else [args.org],
                     'analyzed_at': datetime.now().isoformat(),
                     'total_repositories': len(repo_data),
-                    'repositories': repo_data
+                    'repositories': repo_data,
+                    'analysis_mode': 'multi-organization' if args.org_ids else 'single-organization'
                 }, f, indent=2, default=str)
             logger.info(f"JSON report saved to: {json_file}")
         
         if args.format in ['csv', 'all']:
-            csv_file = os.path.join(args.output_dir, f"github_org_stats_{args.org}_{timestamp}.csv")
-            df = pd.json_normalize(repo_data)
+            csv_file = os.path.join(args.output_dir, f"github_org_stats_{filename_suffix}_{timestamp}.csv")
+            # Apply language name sanitization before pandas normalization
+            sanitized_repo_data = sanitize_language_names(repo_data)
+            df = pd.json_normalize(sanitized_repo_data)
             df.to_csv(csv_file, index=False)
             logger.info(f"CSV report saved to: {csv_file}")
         
         if args.format in ['excel', 'all']:
-            excel_file = os.path.join(args.output_dir, f"github_org_stats_{args.org}_{timestamp}.xlsx")
-            df = pd.json_normalize(repo_data)
+            excel_file = os.path.join(args.output_dir, f"github_org_stats_{filename_suffix}_{timestamp}.xlsx")
+            # Apply language name sanitization before pandas normalization
+            sanitized_repo_data = sanitize_language_names(repo_data)
+            df = pd.json_normalize(sanitized_repo_data)
             
             with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
                 # Main data sheet
                 df.to_excel(writer, sheet_name='Repository_Data', index=False)
                 
-                # Summary sheet
+                # Summary sheet - overall summary
                 summary_data = {
                     'Metric': [
+                        'Total Organizations',
                         'Total Repositories',
                         'Private Repositories',
                         'Forked Repositories',
@@ -1697,19 +1833,39 @@ def main() -> int:
                         'Protected Repositories'
                     ],
                     'Value': [
-                        len(repo_data),
-                        sum(1 for r in repo_data if r.get('private', False)),
-                        sum(1 for r in repo_data if r.get('fork', False)),
-                        sum(1 for r in repo_data if r.get('archived', False)),
-                        sum(r.get('stargazers_count', 0) for r in repo_data),
-                        sum(r.get('forks_count', 0) for r in repo_data),
-                        sum(r.get('open_issues_count', 0) for r in repo_data),
-                        sum(1 for r in repo_data if r.get('github_actions', {}).get('workflows_count', 0) > 0),
-                        sum(1 for r in repo_data if r.get('branch_protection', {}).get('protected', False))
+                        len(organizations_to_analyze),
+                        len(sanitized_repo_data),
+                        sum(1 for r in sanitized_repo_data if r.get('private', False)),
+                        sum(1 for r in sanitized_repo_data if r.get('fork', False)),
+                        sum(1 for r in sanitized_repo_data if r.get('archived', False)),
+                        sum(r.get('stargazers_count', 0) for r in sanitized_repo_data),
+                        sum(r.get('forks_count', 0) for r in sanitized_repo_data),
+                        sum(r.get('open_issues_count', 0) for r in sanitized_repo_data),
+                        sum(1 for r in sanitized_repo_data if r.get('github_actions', {}).get('workflows_count', 0) > 0),
+                        sum(1 for r in sanitized_repo_data if r.get('branch_protection', {}).get('protected', False))
                     ]
                 }
                 summary_df = pd.DataFrame(summary_data)
                 summary_df.to_excel(writer, sheet_name='Summary', index=False)
+                
+                # Organization breakdown sheet (if multi-org mode)
+                if args.org_ids and len(organizations_to_analyze) > 1:
+                    org_breakdown = []
+                    for org_name in organizations_to_analyze.keys():
+                        org_repos = [r for r in sanitized_repo_data if r.get('organization') == org_name]
+                        org_breakdown.append({
+                            'Organization': org_name,
+                            'Repositories': len(org_repos),
+                            'Private Repos': sum(1 for r in org_repos if r.get('private', False)),
+                            'Forked Repos': sum(1 for r in org_repos if r.get('fork', False)),
+                            'Archived Repos': sum(1 for r in org_repos if r.get('archived', False)),
+                            'Total Stars': sum(r.get('stargazers_count', 0) for r in org_repos),
+                            'Total Forks': sum(r.get('forks_count', 0) for r in org_repos),
+                            'Open Issues': sum(r.get('open_issues_count', 0) for r in org_repos)
+                        })
+                    
+                    org_breakdown_df = pd.DataFrame(org_breakdown)
+                    org_breakdown_df.to_excel(writer, sheet_name='Organization_Breakdown', index=False)
             
             logger.info(f"Excel report saved to: {excel_file}")
         
@@ -1718,22 +1874,31 @@ def main() -> int:
         log_processing_stats(
             logger,
             processed=len(repo_data),
-            total=len(repos),
+            total=total_repos_found,
             skipped=len(skipped_repos),
             errors=error_summary['total_errors']
         )
         
         logger.info("=== Analysis Summary ===")
+        logger.info(f"Organizations analyzed: {len(organizations_to_analyze)}")
+        logger.info(f"Organization names: {', '.join(organizations_to_analyze.keys())}")
         logger.info(f"Repositories processed: {len(repo_data)}")
         logger.info(f"Repositories skipped: {len(skipped_repos)}")
         logger.info(f"Total errors encountered: {error_summary['total_errors']}")
         logger.info(f"Bot filtering: {'enabled' if args.exclude_bots else 'disabled'}")
         logger.info(f"Empty repo filtering: {'enabled' if not args.include_empty else 'disabled'}")
         
+        # Per-organization breakdown
+        if args.org_ids and len(organizations_to_analyze) > 1:
+            logger.info("=== Per-Organization Breakdown ===")
+            for org_name in organizations_to_analyze.keys():
+                org_repos = [r for r in repo_data if r.get('organization') == org_name]
+                logger.info(f"{org_name}: {len(org_repos)} repositories processed")
+        
         if error_summary['total_errors'] > 0:
             logger.warning(f"Errors by category: {error_summary['errors_by_category']}")
         
-        logger.info("Analysis completed successfully")
+        logger.info("Multi-organization analysis completed successfully")
         return 0
         
     except KeyboardInterrupt:

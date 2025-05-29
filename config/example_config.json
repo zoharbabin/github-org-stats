@@ -1,25 +1,46 @@
 {
+  "_comment": "GitHub Organization Statistics Tool - Example Configuration v1.1.0",
+  "_usage": "Use with: python github_org_stats.py --config config.json --org-ids 'org1:id1,org2:id2'",
+  
   "authentication": {
     "app_id": 12345,
     "private_key_path": "/path/to/private-key.pem",
     "installation_mappings": {
+      "kaltura": 68242466,
+      "kaltura-ps": 68357040,
       "your-org": 67890,
       "another-org": 11111,
       "third-org": 22222
     }
   },
+  "multi_organization": {
+    "_comment": "Multi-organization analysis settings (v1.1.0+)",
+    "enabled": true,
+    "organizations": [
+      "kaltura",
+      "kaltura-ps",
+      "your-org"
+    ],
+    "combined_output": true,
+    "organization_breakdown": true
+  },
   "analysis": {
-    "days_back": 60,
-    "max_repos": 200,
-    "include_forks": false,
-    "include_archived": false,
+    "days_back": 365,
+    "max_repos": 6000,
+    "include_forks": true,
+    "include_archived": true,
     "exclude_bots": true,
-    "include_empty": false
+    "include_empty": true
   },
   "output": {
-    "format": "excel",
-    "output_dir": "./reports",
-    "timezone": "UTC"
+    "format": "all",
+    "output_dir": "./multi_org_reports",
+    "timezone": "UTC",
+    "multi_org_features": {
+      "organization_breakdown_sheet": true,
+      "combined_summary": true,
+      "per_org_statistics": true
+    }
   },
   "logging": {
     "level": "INFO",
